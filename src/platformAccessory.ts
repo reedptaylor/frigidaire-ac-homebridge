@@ -1,13 +1,13 @@
 import { Service, PlatformAccessory, CharacteristicValue } from 'homebridge';
 
-import { ExampleHomebridgePlatform } from './platform';
+import { FrigidaireHomebridgePlatform } from './platform';
 
 /**
  * Platform Accessory
  * An instance of this class is created for each accessory your platform registers
  * Each accessory may expose multiple services of different service types.
  */
-export class ExamplePlatformAccessory {
+export class FrigidaireHomebridgePlatformAccessory {
   private service: Service;
 
   /**
@@ -20,15 +20,22 @@ export class ExamplePlatformAccessory {
   };
 
   constructor(
-    private readonly platform: ExampleHomebridgePlatform,
+    private readonly platform: FrigidaireHomebridgePlatform,
     private readonly accessory: PlatformAccessory,
   ) {
 
+    const device = accessory.context.device;
+    let deviceVersion;
+    platform.AC.getValue(device.applianceSn, platform.AC.VERSION, (err, result) => {
+      deviceVersion = result;
+    });
+
     // set accessory information
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
-      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Default-Manufacturer')
-      .setCharacteristic(this.platform.Characteristic.Model, 'Default-Model')
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, 'Default-Serial');
+      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Frigidaire')
+      .setCharacteristic(this.platform.Characteristic.Model, device.appliance_type)
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, device.applianceSn)
+      .setCharacteristic(this.platform.Characteristic.FirmwareRevision, deviceVersion);
 
     // get the LightBulb service if it exists, otherwise create a new LightBulb service
     // you can create multiple services for each accessory

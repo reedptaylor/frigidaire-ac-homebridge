@@ -1,15 +1,35 @@
 {
-  "pluginAlias": "ExampleHomebridgePlugin",
+  "pluginAlias": "FrigidaireACHomebridgePlugin",
   "pluginType": "platform",
   "singular": true,
   "schema": {
     "type": "object",
     "properties": {
-      "name": {
-        "title": "Name",
+      "username": {
+        "title": "Frigidaire Account Username",
         "type": "string",
         "required": true,
-        "default": "Example Dynamic Platform"
+        "default": "example@email.com"
+      },
+      "password": {
+        "title": "Frigidaire Account Password",
+        "type": "string",
+        "required": true,
+        "default": "password123"
+      },
+      "deviceId": {
+        "title": "Device ID for Frigidaire API",
+        "type": "string",
+        "required": false,
+        "description": "Will be automatically generated if not provided.",
+        "placeholder": "O2-w1yjkjewjQt2J_AjaAaeSZZlmQS501ah"
+      },
+      "pollingInterval": {
+        "title": "API Polling Interval",
+        "type": "integer",
+        "required": false,
+        "description": "How often to fetch data from the Frigidaire API (in milliseconds). Careful, setting this too low may result in rate limiting.",
+        "default": 10000
       }
     }
   }
