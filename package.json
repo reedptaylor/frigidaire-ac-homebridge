@@ -39,6 +39,6 @@
     "typescript": "^5.4.5"
   },
   "dependencies": {
-    "frigidaire": "^2.1.2"
+    "@samthegeek/frigidaire": "^3.0.0"
   }
 }

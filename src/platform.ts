@@ -1,5 +1,5 @@
 import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic } from 'homebridge';
-import Frigidaire = require('frigidaire');
+import Frigidaire = require('@samthegeek/frigidaire');
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { FrigidaireHomebridgePlatformAccessory } from './platformAccessory';
@@ -35,8 +35,8 @@ export class FrigidaireHomebridgePlatform implements DynamicPlatformPlugin {
       username: this.config.username,
       password: this.config.password,
       pollingInterval: this.config.pollingInterval,
-      applianceSerial: null,
       deviceId: this.config.deviceId || null,
+      cacheDir: null, //TODO
     });
 
     // When this event is fired it means Homebridge has restored all cached accessories from disk.
