@@ -1,5 +1,6 @@
 import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic } from 'homebridge';
 import Frigidaire = require('@samthegeek/frigidaire');
+import path = require('path');
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { FrigidaireHomebridgePlatformAccessory } from './platformAccessory';
@@ -17,13 +18,14 @@ export class FrigidaireHomebridgePlatform implements DynamicPlatformPlugin {
   public readonly accessories: PlatformAccessory[] = [];
 
   public readonly AC: Frigidaire;
+  public readonly pollingInterval: number;
 
   constructor(
     public readonly log: Logger,
     public readonly config: PlatformConfig,
     public readonly api: API,
   ) {
-    this.log.debug('Finished initializing platform:', this.config.name);
+    this.log.debug('Starting to initializing FrigidaireHomebridgePlatform');
 
     // Homebridge 1.8.0 introduced a `log.success` method that can be used to log success messages
     // For users that are on a version prior to 1.8.0, we need a 'polyfill' for this method
@@ -31,12 +33,20 @@ export class FrigidaireHomebridgePlatform implements DynamicPlatformPlugin {
       log.success = log.info;
     }
 
+    this.pollingInterval = this.config.pollingInterval || 10000;
+
+    let homebridgeConfigDir: string | null = null;
+    if (this.config.cacheRefreshToken) {
+      homebridgeConfigDir = path.dirname(api.user.configPath());
+      this.log.debug('Will cache auth token in:', homebridgeConfigDir);
+    }
+
     this.AC = new Frigidaire({
       username: this.config.username,
       password: this.config.password,
-      pollingInterval: this.config.pollingInterval,
+      pollingInterval: this.pollingInterval,
       deviceId: this.config.deviceId || null,
-      cacheDir: null, //TODO
+      cacheDir: homebridgeConfigDir,
     });
 
     // When this event is fired it means Homebridge has restored all cached accessories from disk.
@@ -69,6 +79,7 @@ export class FrigidaireHomebridgePlatform implements DynamicPlatformPlugin {
   discoverDevices() {
 
     this.log.debug('Searching for devices...');
+
     this.AC.getDevices((err, result) => {
       if (err) {
         this.log.error(err);
@@ -77,12 +88,10 @@ export class FrigidaireHomebridgePlatform implements DynamicPlatformPlugin {
       this.log.debug('Successfully searched for devices:', result);
 
       for (const device of result) {
-        this.log.debug('Current device discovered:', device);
-
         // generate a unique id for the accessory this should be generated from
         // something globally unique, but constant, for example, the device serial
         // number or MAC address
-        const uuid = this.api.hap.uuid.generate(device.applianceSn);
+        const uuid = this.api.hap.uuid.generate(device.fullId);
 
         // see if an accessory with the same uuid has already been registered and restored from
         // the cached devices we stored in the `configureAccessory` method above
@@ -124,7 +133,7 @@ export class FrigidaireHomebridgePlatform implements DynamicPlatformPlugin {
           this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
         }
 
-        this.AC.getTelem(device.sn, () => { }); // broken?
+        this.AC.getTelem(device.sn, () => { });
       }
     });
   }
