@@ -109,7 +109,7 @@ export class FrigidaireHomebridgePlatform implements DynamicPlatformPlugin {
           // this is imported from `platformAccessory.ts`
           new FrigidaireHomebridgePlatformAccessory(this, existingAccessory);
 
-          // TODO
+          // TODO: future feature
           // it is possible to remove platform accessories at any time using `api.unregisterPlatformAccessories`, e.g.:
           // remove platform accessories when no longer present
           // this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory]);
