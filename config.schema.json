@@ -21,7 +21,7 @@
         "title": "Device ID for Frigidaire API",
         "type": "string",
         "required": false,
-        "description": "Will be automatically generated if not provided.",
+        "description": "Will be automatically generated on each startup if not provided.",
         "placeholder": "O2-w1yjkjewjQt2J_AjaAaeSZZlmQS501ah"
       },
       "pollingInterval": {
@@ -30,6 +30,12 @@
         "required": false,
         "description": "How often to fetch data from the Frigidaire API (in milliseconds). Careful, setting this too low may result in rate limiting.",
         "default": 10000
+      },
+      "cacheRefreshToken": {
+        "title": "Cache Refresh Token",
+        "type": "boolean",
+        "description": "If refresh token should be cached to minimize authorization calls.",
+        "default": true
       }
     }
   }
