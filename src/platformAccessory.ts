@@ -9,8 +9,8 @@ import { FrigidaireHomebridgePlatform } from './platform';
  */
 export class FrigidaireHomebridgePlatformAccessory {
   private heaterCoolerService: Service;
-  private autoFanService: Service;
-  private econModeService: Service;
+  private fanService: Service;
+  private ecoModeService: Service;
   private filterService: Service;
 
   private currentStates = {
@@ -22,10 +22,12 @@ export class FrigidaireHomebridgePlatformAccessory {
     heaterCoolerCurrentTemperature: 0 as CharacteristicValue,
     heaterCoolerTargetTemperature: 15 as CharacteristicValue,
     temperatureDisplayUnits: this.platform.Characteristic.TemperatureDisplayUnits.FAHRENHEIT as CharacteristicValue,
+    fanActive: this.platform.Characteristic.Active.INACTIVE as CharacteristicValue,
+    currentFanState: this.platform.Characteristic.CurrentFanState.INACTIVE as CharacteristicValue,
+    targetFanState: this.platform.Characteristic.TargetFanState.AUTO as CharacteristicValue,
     fanSpeed: 100 as CharacteristicValue,
     fanSwing: this.platform.Characteristic.SwingMode.SWING_DISABLED as CharacteristicValue,
-    autoFan: true as CharacteristicValue,
-    econMode: true as CharacteristicValue,
+    ecoMode: true as CharacteristicValue,
     filterStatus: this.platform.Characteristic.FilterChangeIndication.FILTER_OK,
   };
 
@@ -50,17 +52,17 @@ export class FrigidaireHomebridgePlatformAccessory {
 
     this.heaterCoolerService = this.accessory.getService(this.platform.Service.HeaterCooler)
       || this.accessory.addService(this.platform.Service.HeaterCooler);
-    this.autoFanService = this.accessory.getService('autofan')
-      || this.accessory.addService(this.platform.Service.Switch, device.nickname + ' Auto Fan', 'autofan');
-    this.econModeService = this.accessory.getService('econmode')
-      || this.accessory.addService(this.platform.Service.Switch, device.nickname + ' Econ Mode', 'econmode');
+    this.fanService= this.accessory.getService(this.platform.Service.Fanv2)
+    || this.accessory.addService(this.platform.Service.Fanv2);
+    this.ecoModeService = this.accessory.getService('eco-mode')
+      || this.accessory.addService(this.platform.Service.Switch, device.nickname + ' Eco Mode', 'eco-mode');
     this.filterService = this.accessory.getService(this.platform.Service.FilterMaintenance)
       || this.accessory.addService(this.platform.Service.FilterMaintenance);
 
     // set the service name, this is what is displayed as the default name on the Home app
     this.heaterCoolerService.setCharacteristic(this.platform.Characteristic.Name, device.nickname);
-    this.autoFanService.setCharacteristic(this.platform.Characteristic.Name, device.nickname + ' Auto Fan');
-    this.econModeService.setCharacteristic(this.platform.Characteristic.Name, device.nickname + ' Econ Mode');
+    this.fanService.setCharacteristic(this.platform.Characteristic.Name, device.nickname + ' Fan');
+    this.ecoModeService.setCharacteristic(this.platform.Characteristic.Name, device.nickname + ' Eco Mode');
 
     // each service must implement at-minimum the "required characteristics" for the given service type
     // see https://developers.homebridge.io/#/service/Lightbulb
@@ -96,22 +98,29 @@ export class FrigidaireHomebridgePlatformAccessory {
       .onGet(this.getTemperatureDisplayUnits.bind(this))
       .onSet(this.setTemperatureDisplayUnits.bind(this));
 
-    this.heaterCoolerService.getCharacteristic(this.platform.Characteristic.RotationSpeed)
+    // Fan Service
+    this.fanService.getCharacteristic(this.platform.Characteristic.Active)
+      .onSet(this.setFanActive.bind(this))
+      .onGet(this.getFanActive.bind(this));
+
+    this.fanService.getCharacteristic(this.platform.Characteristic.CurrentFanState)
+      .onGet(this.getFanState.bind(this));
+
+    this.fanService.getCharacteristic(this.platform.Characteristic.TargetFanState)
+      .onSet(this.setTargetFanState.bind(this))
+      .onGet(this.getTargetFanState.bind(this));
+
+    this.fanService.getCharacteristic(this.platform.Characteristic.RotationSpeed)
       .onSet(this.setFanSpeed.bind(this))
       .onGet(this.getFanSpeed.bind(this));
 
-    this.heaterCoolerService.getCharacteristic(this.platform.Characteristic.SwingMode)
+    this.fanService.getCharacteristic(this.platform.Characteristic.SwingMode)
       .onSet(this.setFanSwing.bind(this))
       .onGet(this.getFanSwing.bind(this));
 
-    // Auto Fan Service
-    this.autoFanService.getCharacteristic(this.platform.Characteristic.On)
-      .onSet(this.setAutoFan.bind(this))
-      .onGet(this.getAutoFan.bind(this));
-
-    // Econ Mode Service
-    this.econModeService.getCharacteristic(this.platform.Characteristic.On)
-      .onSet(this.setEconMode.bind(this))
+    // Eco Mode Service
+    this.ecoModeService.getCharacteristic(this.platform.Characteristic.On)
+      .onSet(this.setEcoMode.bind(this))
       .onGet(this.getEcoMode.bind(this));
 
     // Filter Service
@@ -132,16 +141,18 @@ export class FrigidaireHomebridgePlatformAccessory {
       this.platform.AC.getTelem(this.currentStates.serialNumber, () => { });
       setTimeout(async () => { // Use a separate timeout since callback for getTelem doesn't work
         const [coolerActive, currentCoolerState, targetCoolerState, currentCoolerTemperature, targetCoolerTemperature,
-          temperatureDisplayUnits, fanSpeed, fanSwing, autoFan, ecoMode, filterStatus] = await Promise.all([
+          temperatureDisplayUnits, fanActive, fanState, targetFanState, fanSpeed, fanSwing, ecoMode, filterStatus] = await Promise.all([
           this.getCoolerActive(),
           this.getCurrentCoolerState(),
           this.getTargetCoolerState(),
           this.getCurrentCoolerTemperature(),
           this.getTargetCoolerTemperature(),
           this.getTemperatureDisplayUnits(),
+          this.getFanActive(),
+          this.getFanState(),
+          this.getTargetFanState(),
           this.getFanSpeed(),
           this.getFanSwing(),
-          this.getAutoFan(),
           this.getEcoMode(),
           this.getFilterStatus(),
         ]);
@@ -153,8 +164,12 @@ export class FrigidaireHomebridgePlatformAccessory {
         this.heaterCoolerService.updateCharacteristic(this.platform.Characteristic.TemperatureDisplayUnits, temperatureDisplayUnits);
         this.heaterCoolerService.updateCharacteristic(this.platform.Characteristic.RotationSpeed, fanSpeed);
         this.heaterCoolerService.updateCharacteristic(this.platform.Characteristic.SwingMode, fanSwing);
-        this.autoFanService.updateCharacteristic(this.platform.Characteristic.On, autoFan);
-        this.econModeService.updateCharacteristic(this.platform.Characteristic.On, ecoMode);
+        this.fanService.updateCharacteristic(this.platform.Characteristic.Active, fanActive);
+        this.fanService.updateCharacteristic(this.platform.Characteristic.CurrentFanState, fanState);
+        this.fanService.updateCharacteristic(this.platform.Characteristic.TargetFanState, targetFanState);
+        this.fanService.updateCharacteristic(this.platform.Characteristic.RotationSpeed, fanSpeed);
+        this.fanService.updateCharacteristic(this.platform.Characteristic.SwingMode, fanSwing);
+        this.ecoModeService.updateCharacteristic(this.platform.Characteristic.On, ecoMode);
         this.filterService.updateCharacteristic(this.platform.Characteristic.FilterChangeIndication, filterStatus);
       }, 2000);
     }, this.currentStates.pollingInterval);
@@ -168,6 +183,18 @@ export class FrigidaireHomebridgePlatformAccessory {
     } else if (speed > 66) {
       return this.platform.AC.FANMODE_HIGH;
     }
+  }
+
+  private getFanSpeedFromMode(result: number) {
+    if (result === this.platform.AC.FANMODE_LOW) {
+      return 33;
+    } else if (result === this.platform.AC.FANMODE_MED) {
+      return 66;
+    } else if (result === this.platform.AC.FANMODE_HIGH || result === this.platform.AC.FANMODE_AUTO) {
+      return 100;
+    }
+
+    return this.currentStates.fanSpeed;
   }
 
   private convertFahrenheitToCelsius(temperature: number) {
@@ -190,7 +217,7 @@ export class FrigidaireHomebridgePlatformAccessory {
     let acMode;
     if (value === this.platform.Characteristic.Active.ACTIVE) {
       // Set mode to target state if active
-      acMode = this.currentStates.econMode ? this.platform.AC.MODE_ECON : this.platform.AC.MODE_COOL;
+      acMode = this.currentStates.ecoMode ? this.platform.AC.MODE_ECON : this.platform.AC.MODE_COOL;
     } else {
       acMode = this.platform.AC.MODE_OFF;
     }
@@ -257,7 +284,48 @@ export class FrigidaireHomebridgePlatformAccessory {
       this.platform.Characteristic.TemperatureDisplayUnits, this.currentStates.temperatureDisplayUnits);
   }
 
-  async setFanSpeed(value: CharacteristicValue) { // TODO integrate
+  async setFanActive(value: CharacteristicValue) {
+    if (value === this.currentStates.fanActive) {
+      return;
+    }
+
+    const fanValue = value === this.platform.Characteristic.Active.ACTIVE
+      ? this.platform.AC.MODE_FAN : (this.currentStates.ecoMode ? this.platform.AC.MODE_ECON : this.platform.AC.MODE_COOL);
+    this.platform.AC.mode(this.currentStates.serialNumber, fanValue, (err, result) => {
+      if (err) {
+        this.platform.log.error(err);
+        return;
+      }
+      this.currentStates.fanActive = value;
+
+      this.platform.log.debug('Successfully set cooler state:', result);
+    });
+
+    this.fanService.updateCharacteristic(this.platform.Characteristic.Active, value);
+  }
+
+  async setTargetFanState(value: CharacteristicValue) {
+    if (value === this.currentStates.targetFanState) {
+      return;
+    }
+
+    const acValue = value === this.platform.Characteristic.TargetFanState.AUTO
+      ? this.platform.AC.FANMODE_AUTO : this.getFanModeFromSpeed(value as number);
+    this.platform.AC.fanMode(this.currentStates.serialNumber, acValue, (err, result) => {
+      if (err) {
+        this.platform.log.error(err);
+        return;
+      }
+
+      this.currentStates.targetFanState = value;
+
+      this.platform.log.debug('Successfully set fan mode:', result);
+    });
+
+    this.fanService.updateCharacteristic(this.platform.Characteristic.TargetFanState, value);
+  }
+
+  async setFanSpeed(value: CharacteristicValue) {
     if (value === this.currentStates.fanSpeed) {
       return;
     }
@@ -269,43 +337,21 @@ export class FrigidaireHomebridgePlatformAccessory {
         return;
       }
 
-      this.currentStates.fanSpeed = value;
+      this.currentStates.fanSpeed = this.getFanSpeedFromMode(acValue);
 
       this.platform.log.debug('Successfully set fan mode:', result);
     });
 
-    this.heaterCoolerService.updateCharacteristic(
+    this.fanService.updateCharacteristic(
       this.platform.Characteristic.RotationSpeed, this.currentStates.fanSpeed);
   }
 
   async setFanSwing(value: CharacteristicValue) { // TODO
-    this.heaterCoolerService.updateCharacteristic(this.platform.Characteristic.SwingMode, value);
+    this.fanService.updateCharacteristic(this.platform.Characteristic.SwingMode, value);
   }
 
-  async setAutoFan(value: CharacteristicValue) {
-    if (value === this.currentStates.autoFan) {
-      return;
-    } // todo off state
-
-    const acValue = value ? this.platform.AC.FANMODE_AUTO : this.getFanModeFromSpeed(this.currentStates.fanSpeed as number);
-    this.platform.AC.fanMode(this.currentStates.serialNumber, acValue, (err, result) => {
-      if (err) {
-        this.platform.log.error(err);
-        return;
-      }
-
-      this.currentStates.fanSpeed = value;
-
-      this.platform.log.debug('Successfully set fan mode:', result);
-    });
-
-    this.heaterCoolerService.updateCharacteristic(
-      this.platform.Characteristic.RotationSpeed, this.currentStates.fanSpeed);
-    this.autoFanService.updateCharacteristic(this.platform.Characteristic.On, value);
-  }
-
-  async setEconMode(value: CharacteristicValue) {
-    if (value === this.currentStates.econMode) {
+  async setEcoMode(value: CharacteristicValue) {
+    if (value === this.currentStates.ecoMode) {
       return;
     }
 
@@ -317,15 +363,15 @@ export class FrigidaireHomebridgePlatformAccessory {
           return;
         }
 
-        this.currentStates.econMode = value;
+        this.currentStates.ecoMode = value;
 
         this.platform.log.debug('Successfully set cooler state:', result);
       });
     } else {
-      this.currentStates.econMode = value;
+      this.currentStates.ecoMode = value;
     }
 
-    this.econModeService.updateCharacteristic(this.platform.Characteristic.On, this.currentStates.econMode);
+    this.ecoModeService.updateCharacteristic(this.platform.Characteristic.On, this.currentStates.ecoMode);
   }
 
   /**
@@ -361,13 +407,13 @@ export class FrigidaireHomebridgePlatformAccessory {
   }
 
   async getCurrentCoolerState(): Promise<CharacteristicValue> {
-    this.platform.AC.getMode(this.currentStates.serialNumber, (err, result) => {
+    this.platform.AC.getCoolingState(this.currentStates.serialNumber, (err, result) => {
       if (err) {
         this.platform.log.error(err);
         return;
       }
 
-      if (result === this.platform.AC.MODE_ECON || result === this.platform.AC.MODE_COOL) {
+      if (result === this.platform.AC.COOLINGSTATE_ON) {
         this.currentStates.heaterCoolerCurrentState = this.platform.Characteristic.CurrentHeaterCoolerState.COOLING;
       } else {
         this.currentStates.heaterCoolerCurrentState = this.platform.Characteristic.Active.INACTIVE;
@@ -436,22 +482,66 @@ export class FrigidaireHomebridgePlatformAccessory {
     return this.currentStates.temperatureDisplayUnits;
   }
 
-  async getFanSpeed(): Promise<CharacteristicValue> {
+  async getFanActive(): Promise<CharacteristicValue> {
+    this.platform.AC.getMode(this.currentStates.serialNumber, (err, result) => {
+      if (err) {
+        this.platform.log.error(err);
+        return;
+      }
+
+      this.currentStates.fanActive = result !== this.platform.AC.MODE_OFF;
+
+      this.platform.log.debug('Successfully got cooler mode:', result);
+    });
+
+    return this.currentStates.fanActive;
+  }
+
+  async getFanState(): Promise<CharacteristicValue> {
+    this.platform.AC.getMode(this.currentStates.serialNumber, (err, result) => {
+      if (err) {
+        this.platform.log.error(err);
+        return;
+      }
+
+      this.currentStates.currentFanState = result !== this.platform.AC.MODE_OFF
+        ? this.platform.Characteristic.CurrentFanState.BLOWING_AIR : this.platform.Characteristic.CurrentFanState.INACTIVE;
+
+      this.platform.log.debug('Successfully got cooler mode:', result);
+    });
+
+    return this.currentStates.currentFanState;
+  }
+
+  async getTargetFanState(): Promise<CharacteristicValue> {
     this.platform.AC.getFanMode(this.currentStates.serialNumber, (err, result) => {
       if (err) {
         this.platform.log.error(err);
         return;
       }
 
-      if (result !== this.platform.AC.FANMODE_AUTO) {
-        if (result === this.platform.AC.FANMODE_LOW) {
-          this.currentStates.fanSpeed = 33;
-        } else if (result === this.platform.AC.FANMODE_MED) {
-          this.currentStates.fanSpeed = 66;
-        } else if (result === this.platform.AC.FANMODE_HIGH) {
-          this.currentStates.fanSpeed = 100;
-        }
+      this.currentStates.targetFanState = result === this.platform.AC.FANMODE_AUTO
+        ? this.platform.Characteristic.TargetFanState.AUTO : this.platform.Characteristic.TargetFanState.MANUAL;
+
+      this.platform.log.debug('Successfully got fan mode:', result);
+    });
+
+    return this.currentStates.targetFanState;
+  }
+
+  async getFanSpeed(): Promise<CharacteristicValue> {
+    if (this.currentStates.currentFanState === this.platform.Characteristic.CurrentFanState.INACTIVE) {
+      this.currentStates.fanSpeed = 0;
+      return this.currentStates.fanSpeed;
+    }
+
+    this.platform.AC.getFanMode(this.currentStates.serialNumber, (err, result) => {
+      if (err) {
+        this.platform.log.error(err);
+        return;
       }
+
+      this.currentStates.fanSpeed = this.getFanSpeedFromMode(result);
 
       this.platform.log.debug('Successfully got fan mode:', result);
     });
@@ -474,21 +564,6 @@ export class FrigidaireHomebridgePlatformAccessory {
     return this.currentStates.fanSwing;
   }
 
-  async getAutoFan(): Promise<CharacteristicValue> {
-    this.platform.AC.getFanMode(this.currentStates.serialNumber, (err, result) => {
-      if (err) {
-        this.platform.log.error(err);
-        return;
-      }
-
-      this.currentStates.autoFan = result === this.platform.AC.FANMODE_AUTO;
-
-      this.platform.log.debug('Successfully got fan mode:', result);
-    });
-
-    return this.currentStates.autoFan;
-  }
-
   async getEcoMode(): Promise<CharacteristicValue> {
     this.platform.AC.getMode(this.currentStates.serialNumber, (err, result) => {
       if (err) {
@@ -496,13 +571,13 @@ export class FrigidaireHomebridgePlatformAccessory {
         return;
       }
 
-      this.currentStates.econMode = result === this.platform.AC.MODE_ECON
-        || (result === this.platform.AC.MODE_OFF && this.currentStates.econMode);
+      this.currentStates.ecoMode = result === this.platform.AC.MODE_ECON
+        || (result !== this.platform.AC.MODE_COOL && this.currentStates.ecoMode);
 
       this.platform.log.debug('Successfully got cooler state:', result);
     });
 
-    return this.currentStates.econMode;
+    return this.currentStates.ecoMode;
   }
 
   async getFilterStatus(): Promise<CharacteristicValue> {
