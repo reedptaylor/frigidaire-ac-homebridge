@@ -138,8 +138,7 @@ export class FrigidaireHomebridgePlatformAccessory {
      */
     setInterval(() => {
       this.platform.log.debug('Getting device updates...');
-      this.platform.AC.getTelem(this.currentStates.serialNumber, () => { });
-      setTimeout(async () => { // Use a separate timeout since callback for getTelem doesn't work
+      this.platform.AC.getTelem(this.currentStates.serialNumber, async () => {
         const [coolerActive, currentCoolerState, targetCoolerState, currentCoolerTemperature, targetCoolerTemperature,
           temperatureDisplayUnits, fanActive, fanState, targetFanState, fanSpeed, fanSwing, ecoMode, filterStatus] = await Promise.all([
           this.getCoolerActive(),
@@ -171,7 +170,7 @@ export class FrigidaireHomebridgePlatformAccessory {
         this.fanService.updateCharacteristic(this.platform.Characteristic.SwingMode, fanSwing);
         this.ecoModeService.updateCharacteristic(this.platform.Characteristic.On, ecoMode);
         this.filterService.updateCharacteristic(this.platform.Characteristic.FilterChangeIndication, filterStatus);
-      }, 1200);
+      });
     }, this.currentStates.pollingInterval);
   }
 

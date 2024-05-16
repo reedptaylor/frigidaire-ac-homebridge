@@ -1,5 +1,5 @@
 diff --git a/node_modules/@samthegeek/frigidaire/lib/frigidaire.js b/node_modules/@samthegeek/frigidaire/lib/frigidaire.js
-index ce30eb4..28935a5 100755
+index ce30eb4..0141033 100755
 --- a/node_modules/@samthegeek/frigidaire/lib/frigidaire.js
 +++ b/node_modules/@samthegeek/frigidaire/lib/frigidaire.js
 @@ -11,7 +11,7 @@
@@ -22,7 +22,15 @@ index ce30eb4..28935a5 100755
  function Frigidaire(options, v3 = true) {
      if (!(this instanceof Frigidaire)) {
          return new Frigidaire(options, v3);
-@@ -2057,6 +2061,95 @@ Frigidaire.prototype.getFanMode = function (applianceSn, callback, attempt = 0,
+@@ -1005,6 +1009,7 @@ Frigidaire.prototype.getTelem = function (applianceSn, callback) {
+                         debug("getDevices() - callback() - getting telem for " + device.sn);
+                         self.getTelem(device.sn, function (err, data) { });
+                     });
++                    callback(null, null);
+                     return;
+                 });
+             })
+@@ -2057,6 +2062,95 @@ Frigidaire.prototype.getFanMode = function (applianceSn, callback, attempt = 0,
      }
  };
  
@@ -118,7 +126,7 @@ index ce30eb4..28935a5 100755
  Frigidaire.prototype.setTemp = function (applianceSn, temp, callback, attempt = 0, frigidaireObj) {
      debug("setTemp()");
  
-@@ -2085,24 +2178,15 @@ Frigidaire.prototype.setTemp = function (applianceSn, temp, callback, attempt =
+@@ -2085,24 +2179,15 @@ Frigidaire.prototype.setTemp = function (applianceSn, temp, callback, attempt =
          }
  
          self.getDeviceV3(applianceSn, attempt, function (applianceObj) {
@@ -149,7 +157,7 @@ index ce30eb4..28935a5 100755
              }
          }, self)
      }
-@@ -2151,18 +2235,8 @@ Frigidaire.prototype.getTemp = function (applianceSn, callback, attempt = 0, fri
+@@ -2151,18 +2236,8 @@ Frigidaire.prototype.getTemp = function (applianceSn, callback, attempt = 0, fri
  
              debug("getting temp for " + applianceObj.sn);
  
@@ -170,7 +178,7 @@ index ce30eb4..28935a5 100755
                  return callback(null, result)
              }
              else {
-@@ -2220,18 +2294,8 @@ Frigidaire.prototype.getRoomTemp = function (applianceSn, callback, attempt = 0,
+@@ -2220,18 +2295,8 @@ Frigidaire.prototype.getRoomTemp = function (applianceSn, callback, attempt = 0,
  
              debug("getting temp for " + applianceObj.sn);
  
