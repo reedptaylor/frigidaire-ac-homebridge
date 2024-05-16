@@ -238,6 +238,12 @@ export class FrigidaireHomebridgePlatformAccessory {
 
       this.platform.log.debug('Successfully set cooler state:', result);
       this.heaterCoolerService.updateCharacteristic(this.platform.Characteristic.Active, this.currentStates.heaterCoolerActive);
+      this.ecoModeService.updateCharacteristic(this.platform.Characteristic.On,
+        this.currentStates.heaterCoolerActive === this.platform.Characteristic.Active.ACTIVE);
+
+      if (value === this.platform.Characteristic.Active.ACTIVE) {
+        this.setTargetFanState(this.platform.Characteristic.TargetFanState.AUTO);
+      }
     });
   }
 
@@ -309,9 +315,15 @@ export class FrigidaireHomebridgePlatformAccessory {
     if (value === this.currentStates.targetFanState) {
       return;
     }
+    if (value === this.platform.Characteristic.TargetFanState.AUTO
+      && this.currentStates.heaterCoolerActive === this.platform.Characteristic.Active.INACTIVE) {
+      this.currentStates.targetFanState = this.platform.Characteristic.TargetFanState.MANUAL;
+      this.fanService.updateCharacteristic(this.platform.Characteristic.TargetFanState, this.currentStates.targetFanState);
+      return;
+    }
 
     const acValue = value === this.platform.Characteristic.TargetFanState.AUTO
-      ? this.platform.AC.FANMODE_AUTO : this.getFanModeFromSpeed(value as number);
+      ? this.platform.AC.FANMODE_AUTO : this.getFanModeFromSpeed(this.currentStates.fanSpeed as number);
     this.platform.AC.fanMode(this.currentStates.serialNumber, acValue, (err, result) => {
       if (err) {
         this.platform.log.error(err);
@@ -364,27 +376,23 @@ export class FrigidaireHomebridgePlatformAccessory {
   }
 
   async setEcoMode(value: CharacteristicValue) {
-    if (value === this.currentStates.ecoMode) {
+    if (!value && this.currentStates.heaterCoolerActive === this.platform.Characteristic.Active.INACTIVE) {
+      this.currentStates.ecoMode = value;
       return;
     }
 
-    if (this.currentStates.heaterCoolerActive === this.platform.Characteristic.Active.ACTIVE) {
-      const acMode = value ? this.platform.AC.MODE_ECON : this.platform.AC.MODE_COOL;
-      this.platform.AC.mode(this.currentStates.serialNumber, acMode, (err, result) => {
-        if (err) {
-          this.platform.log.error(err);
-          return;
-        }
+    const acMode = value ? this.platform.AC.MODE_ECON : this.platform.AC.MODE_COOL;
+    this.platform.AC.mode(this.currentStates.serialNumber, acMode, (err, result) => {
+      if (err) {
+        this.platform.log.error(err);
+        return;
+      }
 
-        this.currentStates.ecoMode = value;
-
-        this.platform.log.debug('Successfully set cooler state:', result);
-        this.ecoModeService.updateCharacteristic(this.platform.Characteristic.On, this.currentStates.ecoMode);
-      });
-    } else {
       this.currentStates.ecoMode = value;
+
+      this.platform.log.debug('Successfully set cooler state:', result);
       this.ecoModeService.updateCharacteristic(this.platform.Characteristic.On, this.currentStates.ecoMode);
-    }
+    });
   }
 
   /**
@@ -575,19 +583,19 @@ export class FrigidaireHomebridgePlatformAccessory {
   }
 
   async getEcoMode(): Promise<CharacteristicValue> {
+    let state = false;
     this.platform.AC.getMode(this.currentStates.serialNumber, (err, result) => {
       if (err) {
         this.platform.log.error(err);
         return;
       }
 
-      this.currentStates.ecoMode = result === this.platform.AC.MODE_ECON
-        || (result !== this.platform.AC.MODE_COOL && this.currentStates.ecoMode);
+      state = result === this.platform.AC.MODE_ECON;
 
       this.platform.log.debug('Successfully got cooler state:', result);
     });
 
-    return this.currentStates.ecoMode;
+    return state;
   }
 
   async getFilterStatus(): Promise<CharacteristicValue> {
