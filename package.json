@@ -1,5 +1,4 @@
 {
-  "private": true,
   "displayName": "Frigidaire AC Plugin",
   "name": "@reedptaylor/homebridge-frigidaire-ac-plugin",
   "version": "1.0.0",
