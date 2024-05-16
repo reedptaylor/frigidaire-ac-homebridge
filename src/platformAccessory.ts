@@ -289,8 +289,7 @@ export class FrigidaireHomebridgePlatformAccessory {
       return;
     }
 
-    const fanValue = value === this.platform.Characteristic.Active.ACTIVE
-      ? this.platform.AC.MODE_FAN : (this.currentStates.ecoMode ? this.platform.AC.MODE_ECON : this.platform.AC.MODE_COOL);
+    const fanValue = value === this.platform.Characteristic.Active.ACTIVE ? this.platform.AC.MODE_FAN : this.platform.AC.MODE_OFF;
     this.platform.AC.mode(this.currentStates.serialNumber, fanValue, (err, result) => {
       if (err) {
         this.platform.log.error(err);
