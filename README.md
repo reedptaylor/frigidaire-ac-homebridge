@@ -1,4 +1,6 @@
 # homebridge-frigidaire-ac-plugin
+![NPM Version](https://img.shields.io/npm/v/%40reedptaylor%2Fhomebridge-frigidaire-ac-plugin)
+
 Plugin for Frigidaire AC units to add support to Homebridge. Uses reverse engineered Frigidaire API with contributions from:
 - https://github.com/karlg100/frigidaire
 - https://github.com/marekbrz/frigidaire
