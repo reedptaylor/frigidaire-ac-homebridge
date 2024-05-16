@@ -1,16 +1,7 @@
 diff --git a/node_modules/@samthegeek/frigidaire/lib/frigidaire.js b/node_modules/@samthegeek/frigidaire/lib/frigidaire.js
-index ce30eb4..0141033 100755
+index ce30eb4..dce2b6a 100755
 --- a/node_modules/@samthegeek/frigidaire/lib/frigidaire.js
 +++ b/node_modules/@samthegeek/frigidaire/lib/frigidaire.js
-@@ -11,7 +11,7 @@
- 
- const fs = require('fs');
- 
--var debug = require('debug')('frigidaire:lib');
-+var debug = console.debug;
- var extend = require('xtend');
- var request = require('request');
- //require('request').debug = true
 @@ -39,6 +39,10 @@ function parseJwt(token) {
      return JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
  }
