@@ -171,7 +171,7 @@ export class FrigidaireHomebridgePlatformAccessory {
         this.fanService.updateCharacteristic(this.platform.Characteristic.SwingMode, fanSwing);
         this.ecoModeService.updateCharacteristic(this.platform.Characteristic.On, ecoMode);
         this.filterService.updateCharacteristic(this.platform.Characteristic.FilterChangeIndication, filterStatus);
-      }, 2000);
+      }, 1200);
     }, this.currentStates.pollingInterval);
   }
 
@@ -341,12 +341,27 @@ export class FrigidaireHomebridgePlatformAccessory {
       this.platform.log.debug('Successfully set fan mode:', result);
     });
 
-    this.fanService.updateCharacteristic(
-      this.platform.Characteristic.RotationSpeed, this.currentStates.fanSpeed);
+    this.fanService.updateCharacteristic(this.platform.Characteristic.RotationSpeed, this.currentStates.fanSpeed);
   }
 
-  async setFanSwing(value: CharacteristicValue) { // TODO
-    this.fanService.updateCharacteristic(this.platform.Characteristic.SwingMode, value);
+  async setFanSwing(value: CharacteristicValue) {
+    if (value === this.currentStates.fanSwing) {
+      return;
+    }
+
+    this.platform.AC.setVerticalSwing(this.currentStates.serialNumber, value === this.platform.Characteristic.SwingMode.SWING_ENABLED,
+      (err, result) => {
+        if (err) {
+          this.platform.log.error(err);
+          return;
+        }
+
+        this.currentStates.fanSwing = value;
+
+        this.platform.log.debug('Successfully set fan swing:', result);
+      });
+
+    this.fanService.updateCharacteristic(this.platform.Characteristic.SwingMode, this.currentStates.fanSwing);
   }
 
   async setEcoMode(value: CharacteristicValue) {
@@ -548,17 +563,18 @@ export class FrigidaireHomebridgePlatformAccessory {
     return this.currentStates.fanSpeed;
   }
 
-  async getFanSwing(): Promise<CharacteristicValue> { //TODO this is wrong
-    // this.platform.AC.getValue(this.currentStates.serialNumber, 'verticalSwing', (err, result) => {
-    //   if (err) {
-    //     this.platform.log.error(err);
-    //     return;
-    //   }
+  async getFanSwing(): Promise<CharacteristicValue> {
+    this.platform.AC.getVerticalSwing(this.currentStates.serialNumber, (err, result) => {
+      if (err) {
+        this.platform.log.error(err);
+        return;
+      }
 
-    //   this.currentStates.fanSwing = result === 'ON';
+      this.currentStates.fanSwing = result
+        ? this.platform.Characteristic.SwingMode.SWING_ENABLED : this.platform.Characteristic.SwingMode.SWING_DISABLED;
 
-    //   this.platform.log.debug('Successfully got fan swing:', result);
-    // });
+      this.platform.log.debug('Successfully got fan swing:', result);
+    });
 
     return this.currentStates.fanSwing;
   }

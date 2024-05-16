@@ -1,0 +1,109 @@
+diff --git a/node_modules/@samthegeek/frigidaire/lib/frigidaire.js b/node_modules/@samthegeek/frigidaire/lib/frigidaire.js
+index ce30eb4..256bc51 100755
+--- a/node_modules/@samthegeek/frigidaire/lib/frigidaire.js
++++ b/node_modules/@samthegeek/frigidaire/lib/frigidaire.js
+@@ -11,7 +11,7 @@
+ 
+ const fs = require('fs');
+ 
+-var debug = require('debug')('frigidaire:lib');
++var debug = console.debug;
+ var extend = require('xtend');
+ var request = require('request');
+ //require('request').debug = true
+@@ -2057,6 +2057,95 @@ Frigidaire.prototype.getFanMode = function (applianceSn, callback, attempt = 0,
+     }
+ };
+ 
++Frigidaire.prototype.setVerticalSwing = function (applianceSn, mode, callback, attempt = 0, frigidaireObj) {
++    debug("setVerticalSwing()");
++
++    if (frigidaireObj) {
++        var self = frigidaireObj;
++    }
++    else {
++        var self = this
++    }
++
++    ++attempt;
++    if (self.v3api) {
++        if (self.authFailure) {
++            debug("authentication failure: " + self.authFailure);
++            return;
++        }
++        else if (self.authPending == true || !self.deviceList) {
++            if (attempt > MAX_RETRIES) {
++                debug("setVerticalSwing() - max retries reached. Not rescheduling.");
++                return;
++            }
++            debug("setVerticalSwing() - auth is pending, rescheduling this call in " + SLEEP_TIME + "ms");
++            setTimeout(self.setVerticalSwing, SLEEP_TIME, applianceSn, mode, callback, attempt, self);
++            //callback(null, {})
++            return;
++        }
++
++        var applianceObj = self.getDevice(applianceSn);
++
++        debug("changing vertical swing for " + applianceObj.sn + " to " + mode);
++
++        if (applianceObj && applianceObj['fullId']) {
++            var v3Mode = mode ? 'ON' : 'OFF'
++
++            return self.v3sendAction(callback, applianceObj['fullId'], attempt, 'verticalSwing', v3Mode, frigidaireObj)
++        }
++    }
++    else {
++        debug("not supported on v2 API");
++        callback("getVerticalSwing() - not supported on v2 API", null);
++    }
++};
++
++Frigidaire.prototype.getVerticalSwing = function (applianceSn, callback, attempt = 0, frigidaireObj) {
++    debug("getVerticalSwing()");
++
++    ++attempt;
++    if (frigidaireObj) {
++        var self = frigidaireObj;
++    }
++    else {
++        var self = this
++    }
++
++    if (self.v3api) {
++        if (self.authPending == true || !self.deviceList) {
++            if (attempt > MAX_RETRIES) {
++                debug("getVerticalSwing() - max retries reached. Not rescheduling.");
++                return;
++            }
++            debug("getVerticalSwing() - auth is pending, rescheduling this call in " + SLEEP_TIME + "ms");
++            setTimeout(self.getVerticalSwing, SLEEP_TIME, applianceSn, callback, attempt, self);
++            //callback(null, {})
++            return;
++        }
++
++        self.getDeviceV3(applianceSn, attempt, function (applianceObj) {
++
++            debug("getting vertical swing for " + applianceObj.sn);
++
++            if (applianceObj && applianceObj['telem'] && applianceObj['telem']['verticalSwing']) {
++                switch (applianceObj['telem']['verticalSwing']) {
++                    case 'ON':
++                        var result = true
++                        break;
++                    default:
++                        var result = false
++                        break;
++                }
++                return callback(null, result)
++            }
++        })
++    }
++    else {
++        debug("not supported on v2 API");
++        callback("getVerticalSwing() - not supported on v2 API", null);
++    }
++};
++
+ Frigidaire.prototype.setTemp = function (applianceSn, temp, callback, attempt = 0, frigidaireObj) {
+     debug("setTemp()");
+ 
