@@ -1,5 +1,5 @@
 diff --git a/node_modules/@samthegeek/frigidaire/lib/frigidaire.js b/node_modules/@samthegeek/frigidaire/lib/frigidaire.js
-index ce30eb4..256bc51 100755
+index ce30eb4..28935a5 100755
 --- a/node_modules/@samthegeek/frigidaire/lib/frigidaire.js
 +++ b/node_modules/@samthegeek/frigidaire/lib/frigidaire.js
 @@ -11,7 +11,7 @@
@@ -11,7 +11,18 @@ index ce30eb4..256bc51 100755
  var extend = require('xtend');
  var request = require('request');
  //require('request').debug = true
-@@ -2057,6 +2057,95 @@ Frigidaire.prototype.getFanMode = function (applianceSn, callback, attempt = 0,
+@@ -39,6 +39,10 @@ function parseJwt(token) {
+     return JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+ }
+ 
++function convertCelsiusToFahrenheit(temperature) {
++return (temperature * 1.8) + 32;
++}
++
+ function Frigidaire(options, v3 = true) {
+     if (!(this instanceof Frigidaire)) {
+         return new Frigidaire(options, v3);
+@@ -2057,6 +2061,95 @@ Frigidaire.prototype.getFanMode = function (applianceSn, callback, attempt = 0,
      }
  };
  
@@ -107,3 +118,76 @@ index ce30eb4..256bc51 100755
  Frigidaire.prototype.setTemp = function (applianceSn, temp, callback, attempt = 0, frigidaireObj) {
      debug("setTemp()");
  
+@@ -2085,24 +2178,15 @@ Frigidaire.prototype.setTemp = function (applianceSn, temp, callback, attempt =
+         }
+ 
+         self.getDeviceV3(applianceSn, attempt, function (applianceObj) {
+-
+             debug("changing temp for " + applianceObj.sn + " to " + temp);
+ 
+-            if (applianceObj && applianceObj['fullId'] && applianceObj['telem'] && applianceObj['telem']['temperatureRepresentation']) {
+-                var tempCommandName = null
+-
+-                switch (applianceObj['telem']['temperatureRepresentation']) {
+-                    case 'CELSIUS':
+-                        tempCommandName = 'targetTemperatureC';
+-                        break;
+-                    case 'FAHRENHEIT':
+-                        tempCommandName = 'targetTemperatureF';
+-                        break;
+-                    default:
+-                        break;
++            if (applianceObj && applianceObj['fullId'] && applianceObj['telem']['temperatureRepresentation']) {
++                let command = 'targetTemperatureC';
++                if (applianceObj['telem']['temperatureRepresentation'] == 'FAHRENHEIT') {
++                    temp = convertCelsiusToFahrenheit(temp);
++                    command = 'targetTemperatureF';
+                 }
+-
+-                return self.v3sendAction(callback, applianceObj['fullId'], attempt, tempCommandName, Number(temp), frigidaireObj)
++                return self.v3sendAction(callback, applianceObj['fullId'], attempt, command, Number(temp), frigidaireObj)
+             }
+         }, self)
+     }
+@@ -2151,18 +2235,8 @@ Frigidaire.prototype.getTemp = function (applianceSn, callback, attempt = 0, fri
+ 
+             debug("getting temp for " + applianceObj.sn);
+ 
+-            if (applianceObj && applianceObj['telem'] && applianceObj['telem']['temperatureRepresentation'] && applianceObj['telem']['targetTemperatureF'] && applianceObj['telem']['targetTemperatureC']) {
+-                switch (applianceObj['telem']['temperatureRepresentation']) {
+-                    case 'FAHRENHEIT':
+-                        var result = applianceObj['telem']['targetTemperatureF']
+-                        break;
+-                    case 'CELSIUS':
+-                        var result = applianceObj['telem']['targetTemperatureC']
+-                        break;
+-                    default:
+-                        var result = null
+-                        break;
+-                }
++            if (applianceObj && applianceObj['telem'] && applianceObj['telem']['targetTemperatureC']) {
++                var result = applianceObj['telem']['targetTemperatureC'];
+                 return callback(null, result)
+             }
+             else {
+@@ -2220,18 +2294,8 @@ Frigidaire.prototype.getRoomTemp = function (applianceSn, callback, attempt = 0,
+ 
+             debug("getting temp for " + applianceObj.sn);
+ 
+-            if (applianceObj && applianceObj['telem'] && applianceObj['telem']['temperatureRepresentation'] && applianceObj['telem']['ambientTemperatureF'] && applianceObj['telem']['ambientTemperatureC']) {
+-                switch (applianceObj['telem']['temperatureRepresentation']) {
+-                    case 'FAHRENHEIT':
+-                        var result = applianceObj['telem']['ambientTemperatureF']
+-                        break;
+-                    case 'CELSIUS':
+-                        var result = applianceObj['telem']['ambientTemperatureC']
+-                        break;
+-                    default:
+-                        var result = null
+-                        break;
+-                }
++            if (applianceObj && applianceObj['telem'] && applianceObj['telem']['ambientTemperatureC']) {
++                var result = applianceObj['telem']['ambientTemperatureC'];
+                 return callback(null, result)
+             }
+             else {

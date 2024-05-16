@@ -197,14 +197,6 @@ export class FrigidaireHomebridgePlatformAccessory {
     return this.currentStates.fanSpeed;
   }
 
-  private convertFahrenheitToCelsius(temperature: number) {
-    return (temperature - 32) / 1.8;
-  }
-
-  private convertCelsiusToFahrenheit(temperature: number) {
-    return (temperature * 1.8) + 32;
-  }
-
   /**
    * Handle "SET" requests from HomeKit
    * These are sent when the user changes the state of an accessory, for example, turning on a Light bulb.
@@ -243,11 +235,7 @@ export class FrigidaireHomebridgePlatformAccessory {
       return;
     }
 
-    const convertedValue = this.currentStates.heaterCoolerTargetTemperature =
-    this.currentStates.temperatureDisplayUnits === this.platform.Characteristic.TemperatureDisplayUnits.FAHRENHEIT
-      ? this.convertCelsiusToFahrenheit(value as number) : value;
-
-    this.platform.AC.setTemp(this.currentStates.serialNumber, convertedValue, (err, result) => {
+    this.platform.AC.setTemp(this.currentStates.serialNumber, value, (err, result) => {
       if (err) {
         this.platform.log.error(err);
         return;
@@ -450,9 +438,7 @@ export class FrigidaireHomebridgePlatformAccessory {
         return;
       }
 
-      this.currentStates.heaterCoolerCurrentTemperature =
-        this.currentStates.temperatureDisplayUnits === this.platform.Characteristic.TemperatureDisplayUnits.FAHRENHEIT
-          ? this.convertFahrenheitToCelsius(result) : result;
+      this.currentStates.heaterCoolerCurrentTemperature = result;
 
       this.platform.log.debug('Successfully got cooler current temperature:', result);
     });
@@ -467,9 +453,7 @@ export class FrigidaireHomebridgePlatformAccessory {
         return;
       }
 
-      this.currentStates.heaterCoolerTargetTemperature =
-        this.currentStates.temperatureDisplayUnits === this.platform.Characteristic.TemperatureDisplayUnits.FAHRENHEIT
-          ? this.convertFahrenheitToCelsius(result) : result;
+      this.currentStates.heaterCoolerTargetTemperature = result;
 
       this.platform.log.debug('Successfully got cooler target temperature:', result);
     });
