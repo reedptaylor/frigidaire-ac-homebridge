@@ -31,6 +31,16 @@ export class FrigidaireHomebridgePlatformAccessory {
     filterStatus: this.platform.Characteristic.FilterChangeIndication.FILTER_OK,
   };
 
+  private debounce = (fn, ms = 300) => {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    return function (this, ...args) {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => fn.apply(this, args), ms);
+    };
+  };
+
+  private debouncedSetFanSpeed = this.debounce(this.setFanSpeed, 500);
+
   constructor(
     private readonly platform: FrigidaireHomebridgePlatform,
     private readonly accessory: PlatformAccessory,
@@ -41,6 +51,8 @@ export class FrigidaireHomebridgePlatformAccessory {
     this.currentStates.name = device.nickname;
     this.currentStates.serialNumber = device.sn;
     this.currentStates.pollingInterval = this.platform.pollingInterval;
+
+    this.accessory.category = platform.api.hap.Categories.AIR_CONDITIONER;
 
     // set accessory information
     this.accessory.getService(this.platform.Service.AccessoryInformation)!
@@ -58,6 +70,11 @@ export class FrigidaireHomebridgePlatformAccessory {
       || this.accessory.addService(this.platform.Service.Switch, device.nickname + ' Eco Mode', 'eco-mode');
     this.filterService = this.accessory.getService(this.platform.Service.FilterMaintenance)
       || this.accessory.addService(this.platform.Service.FilterMaintenance);
+
+    this.heaterCoolerService.setPrimaryService(true);
+    this.heaterCoolerService.addLinkedService(this.fanService);
+    this.heaterCoolerService.addLinkedService(this.ecoModeService);
+    this.heaterCoolerService.addLinkedService(this.filterService);
 
     // set the service name, this is what is displayed as the default name on the Home app
     this.heaterCoolerService.setCharacteristic(this.platform.Characteristic.Name, device.nickname);
@@ -111,7 +128,7 @@ export class FrigidaireHomebridgePlatformAccessory {
       .onGet(this.getTargetFanState.bind(this));
 
     this.fanService.getCharacteristic(this.platform.Characteristic.RotationSpeed)
-      .onSet(this.setFanSpeed.bind(this))
+      .onSet(this.debouncedSetFanSpeed.bind(this))
       .onGet(this.getFanSpeed.bind(this));
 
     this.fanService.getCharacteristic(this.platform.Characteristic.SwingMode)
@@ -184,7 +201,7 @@ export class FrigidaireHomebridgePlatformAccessory {
     }
   }
 
-  private getFanSpeedFromMode(result: number) {
+  private getFanSpeedFromMode(result: string) {
     if (result === this.platform.AC.FANMODE_LOW) {
       return 33;
     } else if (result === this.platform.AC.FANMODE_MED) {
@@ -220,9 +237,8 @@ export class FrigidaireHomebridgePlatformAccessory {
       this.currentStates.heaterCoolerActive = value;
 
       this.platform.log.debug('Successfully set cooler state:', result);
+      this.heaterCoolerService.updateCharacteristic(this.platform.Characteristic.Active, this.currentStates.heaterCoolerActive);
     });
-
-    this.heaterCoolerService.updateCharacteristic(this.platform.Characteristic.Active, this.currentStates.heaterCoolerActive);
   }
 
   async setTargetCoolerState(value: CharacteristicValue) {
@@ -243,10 +259,9 @@ export class FrigidaireHomebridgePlatformAccessory {
       this.currentStates.heaterCoolerTargetTemperature = value;
 
       this.platform.log.debug('Successfully set temperature display units:', result);
+      this.heaterCoolerService.updateCharacteristic(
+        this.platform.Characteristic.CoolingThresholdTemperature, this.currentStates.heaterCoolerTargetTemperature);
     });
-
-    this.heaterCoolerService.updateCharacteristic(
-      this.platform.Characteristic.CoolingThresholdTemperature, this.currentStates.heaterCoolerTargetTemperature);
   }
 
   async setTemperatureDisplayUnits(value: CharacteristicValue) {
@@ -265,10 +280,9 @@ export class FrigidaireHomebridgePlatformAccessory {
       this.currentStates.temperatureDisplayUnits = value;
 
       this.platform.log.debug('Successfully set temperature display units:', result);
+      this.heaterCoolerService.updateCharacteristic(
+        this.platform.Characteristic.TemperatureDisplayUnits, this.currentStates.temperatureDisplayUnits);
     });
-
-    this.heaterCoolerService.updateCharacteristic(
-      this.platform.Characteristic.TemperatureDisplayUnits, this.currentStates.temperatureDisplayUnits);
   }
 
   async setFanActive(value: CharacteristicValue) {
@@ -283,11 +297,12 @@ export class FrigidaireHomebridgePlatformAccessory {
         return;
       }
       this.currentStates.fanActive = value;
+      this.currentStates.heaterCoolerActive = value;
 
       this.platform.log.debug('Successfully set cooler state:', result);
+      this.fanService.updateCharacteristic(this.platform.Characteristic.Active, this.currentStates.fanActive);
+      this.heaterCoolerService.updateCharacteristic(this.platform.Characteristic.Active, this.currentStates.fanActive);
     });
-
-    this.fanService.updateCharacteristic(this.platform.Characteristic.Active, value);
   }
 
   async setTargetFanState(value: CharacteristicValue) {
@@ -306,9 +321,8 @@ export class FrigidaireHomebridgePlatformAccessory {
       this.currentStates.targetFanState = value;
 
       this.platform.log.debug('Successfully set fan mode:', result);
+      this.fanService.updateCharacteristic(this.platform.Characteristic.TargetFanState, this.currentStates.targetFanState);
     });
-
-    this.fanService.updateCharacteristic(this.platform.Characteristic.TargetFanState, value);
   }
 
   async setFanSpeed(value: CharacteristicValue) {
@@ -326,9 +340,8 @@ export class FrigidaireHomebridgePlatformAccessory {
       this.currentStates.fanSpeed = this.getFanSpeedFromMode(acValue);
 
       this.platform.log.debug('Successfully set fan mode:', result);
+      this.fanService.updateCharacteristic(this.platform.Characteristic.RotationSpeed, this.currentStates.fanSpeed);
     });
-
-    this.fanService.updateCharacteristic(this.platform.Characteristic.RotationSpeed, this.currentStates.fanSpeed);
   }
 
   async setFanSwing(value: CharacteristicValue) {
@@ -346,9 +359,8 @@ export class FrigidaireHomebridgePlatformAccessory {
         this.currentStates.fanSwing = value;
 
         this.platform.log.debug('Successfully set fan swing:', result);
+        this.fanService.updateCharacteristic(this.platform.Characteristic.SwingMode, this.currentStates.fanSwing);
       });
-
-    this.fanService.updateCharacteristic(this.platform.Characteristic.SwingMode, this.currentStates.fanSwing);
   }
 
   async setEcoMode(value: CharacteristicValue) {
@@ -367,12 +379,12 @@ export class FrigidaireHomebridgePlatformAccessory {
         this.currentStates.ecoMode = value;
 
         this.platform.log.debug('Successfully set cooler state:', result);
+        this.ecoModeService.updateCharacteristic(this.platform.Characteristic.On, this.currentStates.ecoMode);
       });
     } else {
       this.currentStates.ecoMode = value;
+      this.ecoModeService.updateCharacteristic(this.platform.Characteristic.On, this.currentStates.ecoMode);
     }
-
-    this.ecoModeService.updateCharacteristic(this.platform.Characteristic.On, this.currentStates.ecoMode);
   }
 
   /**
