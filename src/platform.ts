@@ -86,6 +86,7 @@ export class FrigidaireHomebridgePlatform implements DynamicPlatformPlugin {
         return;
       }
       this.log.debug('Successfully searched for devices:', result);
+      const restoredDeviceIds: string[] = [];
 
       for (const device of result) {
         if (device.telem.applianceInfo.applianceType !== 'AC') {
@@ -105,6 +106,7 @@ export class FrigidaireHomebridgePlatform implements DynamicPlatformPlugin {
         if (existingAccessory) {
           // the accessory already exists
           this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
+          restoredDeviceIds.push(uuid);
 
           // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. e.g.:
           existingAccessory.context.device = device;
@@ -113,12 +115,6 @@ export class FrigidaireHomebridgePlatform implements DynamicPlatformPlugin {
           // create the accessory handler for the restored accessory
           // this is imported from `platformAccessory.ts`
           new FrigidaireHomebridgePlatformAccessory(this, existingAccessory);
-
-          // TODO: future feature
-          // it is possible to remove platform accessories at any time using `api.unregisterPlatformAccessories`, e.g.:
-          // remove platform accessories when no longer present
-          // this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory]);
-          // this.log.info('Removing existing accessory from cache:', existingAccessory.displayName);
         } else {
           // the accessory does not yet exist, so we need to create it
           this.log.info('Adding new accessory:', device.nickname);
@@ -139,6 +135,12 @@ export class FrigidaireHomebridgePlatform implements DynamicPlatformPlugin {
         }
 
         this.AC.getTelem(device.sn, () => { });
+      }
+
+      // remove any accessories that are no longer present in Frigidaire App
+      for (const removedAccessory of this.accessories.filter(accessory => !restoredDeviceIds.includes(accessory.UUID))) {
+        this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [removedAccessory]);
+        this.log.info('Removing existing accessory from cache:', removedAccessory.displayName);
       }
     });
   }
