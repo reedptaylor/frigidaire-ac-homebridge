@@ -88,6 +88,11 @@ export class FrigidaireHomebridgePlatform implements DynamicPlatformPlugin {
       this.log.debug('Successfully searched for devices:', result);
 
       for (const device of result) {
+        if (device.telem.applianceInfo.applianceType !== 'AC') {
+          this.log.info('Skipping non AC device device:', device.nickname, device.telem.applianceInfo.applianceType);
+          continue;
+        }
+
         // generate a unique id for the accessory this should be generated from
         // something globally unique, but constant, for example, the device serial
         // number or MAC address
