@@ -1,7 +1,7 @@
 {
   "displayName": "Frigidaire AC Plugin",
   "name": "@reedptaylor/homebridge-frigidaire-ac-plugin",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Plugin for homebridge to add support for Frigidaire Air Conditioners.",
   "license": "Apache-2.0",
   "repository": {
