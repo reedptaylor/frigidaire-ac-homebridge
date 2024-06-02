@@ -65,14 +65,13 @@ export class FrigidaireHomebridgePlatformAccessory {
     this.heaterCoolerService = this.accessory.getService(this.platform.Service.HeaterCooler)
       || this.accessory.addService(this.platform.Service.HeaterCooler);
     this.fanService= this.accessory.getService(this.platform.Service.Fanv2)
-    || this.accessory.addService(this.platform.Service.Fanv2);
+      || this.accessory.addService(this.platform.Service.Fanv2);
     this.ecoModeService = this.accessory.getService('eco-mode')
       || this.accessory.addService(this.platform.Service.Switch, device.nickname + ' Eco Mode', 'eco-mode');
     this.filterService = this.accessory.getService(this.platform.Service.FilterMaintenance)
       || this.accessory.addService(this.platform.Service.FilterMaintenance);
 
     this.heaterCoolerService.setPrimaryService(true);
-    this.heaterCoolerService.addLinkedService(this.fanService);
     this.heaterCoolerService.addLinkedService(this.ecoModeService);
     this.heaterCoolerService.addLinkedService(this.filterService);
 
@@ -128,6 +127,9 @@ export class FrigidaireHomebridgePlatformAccessory {
       .onGet(this.getTargetFanState.bind(this));
 
     this.fanService.getCharacteristic(this.platform.Characteristic.RotationSpeed)
+      .setProps({
+        minStep:33.33,
+      })
       .onSet(this.debouncedSetFanSpeed.bind(this))
       .onGet(this.getFanSpeed.bind(this));
 
@@ -192,22 +194,22 @@ export class FrigidaireHomebridgePlatformAccessory {
   }
 
   private getFanModeFromSpeed(speed: number) {
-    if (speed <= 33) {
+    if (speed <= 33.33) {
       return this.platform.AC.FANMODE_LOW;
-    } else if (speed > 33 && speed <= 66) {
+    } else if (speed > 33.33 && speed <= 66.66) {
       return this.platform.AC.FANMODE_MED;
-    } else if (speed > 66) {
+    } else if (speed > 66.66) {
       return this.platform.AC.FANMODE_HIGH;
     }
   }
 
   private getFanSpeedFromMode(result: string) {
     if (result === this.platform.AC.FANMODE_LOW) {
-      return 33;
+      return 33.33;
     } else if (result === this.platform.AC.FANMODE_MED) {
-      return 66;
+      return 66.66;
     } else if (result === this.platform.AC.FANMODE_HIGH || result === this.platform.AC.FANMODE_AUTO) {
-      return 100;
+      return 99.99;
     }
 
     return this.currentStates.fanSpeed;
